@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
-import { request, setToken, showAlert } from '@/lib/api';
+import { request, setToken } from '@/lib/api';
+import { AppAlert } from '@/components/AppAlert';
 
 // หน้า Login
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<{ title: string; message: string } | null>(null);
 
   async function login() {
     if (!username.trim() || !password) {
-      showAlert('Login failed', 'Please enter username and password');
+      setError({ title: 'Login failed', message: 'Please enter username and password' });
       return;
     }
     setLoading(true);
@@ -23,7 +25,7 @@ export default function LoginScreen() {
       setToken(res.token);
       router.replace('/dashboard');
     } catch (e) {
-      showAlert('Login failed', (e as Error).message);
+      setError({ title: 'Login failed', message: (e as Error).message });
     } finally {
       setLoading(false);
     }
@@ -47,6 +49,7 @@ export default function LoginScreen() {
           {loading ? <ActivityIndicator color="#FFF" /> : <Text style={s.btnText}>Login</Text>}
         </Pressable>
       </View>
+      <AppAlert visible={!!error} title={error?.title ?? ''} message={error?.message} onClose={() => setError(null)} />
     </KeyboardAvoidingView>
   );
 }

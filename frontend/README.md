@@ -21,6 +21,12 @@ git --version
 
 Windows: ถ้า PowerShell ขึ้นว่า running scripts is disabled ให้ใช้ Command Prompt แทน หรือรัน Set-ExecutionPolicy -Scope CurrentUser RemoteSigned หนึ่งครั้ง
 
+
+ID passคือ 
+admin
+password123
+r
+
 2. ดึงโค้ด
 bash
 git clone https://github.com/warit655/Std0251344IPFinal2026.git

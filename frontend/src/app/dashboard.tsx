@@ -153,7 +153,7 @@ export default function Dashboard() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F8F5' }} edges={['top', 'left', 'right']}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 110 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} tintColor={G} />}
       >
@@ -349,11 +349,6 @@ export default function Dashboard() {
           })}
         </View>
       </ScrollView>
-
-      {/* ปุ่มลอยเพิ่มพนักงาน */}
-      <Pressable onPress={openAdd} accessibilityLabel="Add employee" style={({ pressed }) => [s.fab, pressed && { transform: [{ scale: 0.95 }] }]}>
-        <Text style={{ color: '#FFF', fontSize: 30, lineHeight: 32, fontWeight: '300' }}>+</Text>
-      </Pressable>
 
       <EmployeeForm visible={formOpen} employee={editing} onClose={() => setFormOpen(false)} onSubmit={save} />
     </SafeAreaView>
