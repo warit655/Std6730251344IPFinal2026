@@ -1,56 +1,100 @@
-# Welcome to your Expo app 👋
+Std0251344IPFinal2026 — HR Manager & Salary Analytics System
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Final Exam: Internet Programming (2026) ระบบจัดการพนักงาน + วิเคราะห์โครงสร้างเงินเดือนด้วย K-Means
 
-## Get started
+Std0251344IPFinal2026
+├── backend    (Express.js + MySQL)
+└── frontend   (React Native / Expo)
+1. สิ่งที่ต้องติดตั้งก่อน
+โปรแกรม	ใช้ทำอะไร	ดาวน์โหลด
+Node.js (LTS, v18 ขึ้นไป)	รัน backend และ Expo	https://nodejs.org
+Git	ดึงโค้ดจาก GitHub	https://git-scm.com
+MySQL / MariaDB	ฐานข้อมูล (หรือใช้ของ Server Cloud ที่มีอยู่แล้ว)	–
+Expo Go (ไม่บังคับ)	เปิดแอปบนมือถือ	App Store / Play Store
 
-1. Install dependencies
+เช็กว่าติดตั้งแล้ว:
 
-   ```bash
-   npm install
-   ```
+bash
+node -v
+npm -v
+git --version
 
-2. Start the app
+Windows: ถ้า PowerShell ขึ้นว่า running scripts is disabled ให้ใช้ Command Prompt แทน หรือรัน Set-ExecutionPolicy -Scope CurrentUser RemoteSigned หนึ่งครั้ง
 
-   ```bash
-   npx expo start
-   ```
+2. ดึงโค้ด
+bash
+git clone https://github.com/warit655/Std0251344IPFinal2026.git
+cd Std0251344IPFinal2026
+3. ฐานข้อมูล
 
-In the output, you'll find options to open the app in a
+รันคำสั่งนี้ใน phpMyAdmin (แท็บ SQL) หรือ MySQL client:
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+sql
+CREATE TABLE IF NOT EXISTS Warit_Employees (
+  Warit_ID_Employ INT AUTO_INCREMENT PRIMARY KEY,
+  Warit_Name_Employ VARCHAR(100) NOT NULL,
+  Warit_Position_Employ VARCHAR(100) NOT NULL,
+  Warit_Status_Employ ENUM('Active', 'On Leave') NOT NULL DEFAULT 'Active',
+  Warit_Salary_Employ DECIMAL(10,2) NOT NULL,
+  Warit_Image_Employ MEDIUMTEXT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+INSERT INTO Warit_Employees (Warit_Name_Employ, Warit_Position_Employ, Warit_Status_Employ, Warit_Salary_Employ) VALUES
+('John Doe', 'Software Engineer', 'Active', 45000),
+('Jane Smith', 'UX Designer', 'Active', 42000),
+('Somchai Jaidee', 'Office Assistant', 'On Leave', 15000),
+('Nida Srisuk', 'Receptionist', 'Active', 18000),
+('Anan Wongsa', 'Data Analyst', 'Active', 50000),
+('Mali Rakdee', 'Engineering Manager', 'Active', 85000),
+('Kittipong Saetang', 'CTO', 'Active', 90000);
+4. Backend (Express.js)
+bash
+cd backend
+npm install
 
-## Get a fresh project
+สร้างไฟล์ .env จาก .env.example แล้วใส่ค่าฐานข้อมูลของตัวเอง:
 
-When you're ready, run:
+PORT=3100
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+DB_NAME=your_db_name
 
-```bash
-npm run reset-project
-```
+รันเซิร์ฟเวอร์:
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+bash
+node server.js
 
-### Other setup steps
+ต้องขึ้นข้อความ API running on port 3100
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+รันค้างไว้บนเซิร์ฟเวอร์ Linux: nohup node server.js > nohup.out 2>&1 &
 
-## Learn more
+5. Frontend (React Native / Expo)
 
-To learn more about developing your project with Expo, look at the following resources:
+เปิด Terminal ใหม่ (ปล่อย backend รันไว้):
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+bash
+cd frontend
+npm install
+npx expo install --fix
+npx expo start -c
+กด w เปิดบนเว็บเบราว์เซอร์
+หรือสแกน QR ด้วยแอป Expo Go บนมือถือ (มือถือกับคอมต้องอยู่ Wi-Fi เดียวกัน)
 
-## Join the community
+ที่อยู่ backend ตั้งไว้ที่ frontend/src/lib/api.ts:
 
-Join our community of developers creating universal apps.
+ts
+export const API_URL = 'http://119.59.102.161:3100/api';
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+ถ้ารัน backend บนเครื่องตัวเอง เปลี่ยนเป็น http://localhost:3100/api (เปิดบนเว็บ) หรือ http://<IP เครื่องคอม>:3100/api (เปิดบนมือถือ)
+
+6. วิธีใช้งาน
+Login ด้วย admin / password123 (ใส่ผิดจะขึ้น Alert)
+Dashboard
+ด้านบนแสดงยอดเงินเดือนรวม และจำนวนพนักงานทั้งหมด / Active / On Leave
++ Add Employee (หรือปุ่ม + มุมขวาล่าง) → กรอกชื่อ ตำแหน่ง เงินเดือน ใส่รูปได้ → กด ✨ AI suggest ให้ AI แนะนำเงินเดือนจากตำแหน่งที่คล้ายกัน
+ช่องค้นหา กรองรายชื่อทันทีขณะพิมพ์ (ชื่อ / ตำแหน่ง / เงินเดือน) + ปุ่มกรอง All / Active / On Leave + เรียงลำดับ
+แต่ละคนมีปุ่ม ✏️ Edit (แก้ข้อมูล + รูป), Toggle Status (Active ↔ On Leave), 🗑 Delete (ถาม "Are you sure?" ก่อนลบ)
+Analyze Salary Structure → แสดงตัวโหลด แล้วแบ่งเงินเดือนเป็น 3 Tier ด้วย K-Means พร้อมการ์ดสรุปและกราฟแท่ง
+✨ AI HR Assistant → Ask AI → ให้คะแนนสุขภาพโครงสร้างเงินเดือน (0–100) พร้อมคำแนะนำ เช่น ส่วนต่างเงินเดือน, คนที่เงินเดือนผิดปกติ, สัดส่วนคนลา

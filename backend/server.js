@@ -7,7 +7,7 @@ const mysql = require('mysql2/promise');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '8mb' })); // รูปส่งมาเป็น base64
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
@@ -24,7 +24,8 @@ const SELECT_EMP = `SELECT
   Warit_Name_Employ AS name,
   Warit_Position_Employ AS position,
   Warit_Status_Employ AS status,
-  CAST(Warit_Salary_Employ AS DECIMAL(10,2)) + 0 AS salary
+  CAST(Warit_Salary_Employ AS DECIMAL(10,2)) + 0 AS salary,
+  Warit_Image_Employ AS image
 FROM Warit_Employees`;
 
 // ครอบ route ให้ error ไม่ทำเซิร์ฟเวอร์ล่ม
@@ -100,6 +101,72 @@ app.get('/api/employees/salary-clusters', requireToken, h(async (req, res) => {
 }));
 
 // =======================================================
+// AI: วิเคราะห์โครงสร้างเงินเดือนอัตโนมัติ (ใช้ผล K-Means + สถิติ)
+// =======================================================
+const baht = (n) => '฿' + Math.round(n).toLocaleString('en-US');
+
+app.get('/api/employees/ai-insights', requireToken, h(async (req, res) => {
+  const [rows] = await pool.query(
+    'SELECT Warit_Name_Employ AS name, Warit_Position_Employ AS position, Warit_Status_Employ AS status, Warit_Salary_Employ AS salary FROM Warit_Employees'
+  );
+  const emps = rows.map((r) => ({ ...r, salary: Number(r.salary) }));
+  if (!emps.length) return res.json({ success: true, score: 0, insights: [{ type: 'info', title: 'No data', text: 'Add employees to get AI insights.' }] });
+
+  const salaries = emps.map((e) => e.salary);
+  const total = salaries.reduce((a, b) => a + b, 0);
+  const avg = total / salaries.length;
+  const sorted = [...salaries].sort((a, b) => a - b);
+  const median = sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
+  const sd = Math.sqrt(salaries.reduce((a, s) => a + (s - avg) ** 2, 0) / salaries.length);
+  const clusters = kmeans1D(salaries, 3);
+  const onLeave = emps.filter((e) => e.status === 'On Leave');
+  const top = emps.reduce((a, b) => (b.salary > a.salary ? b : a));
+  const gap = clusters.length > 1 ? clusters[clusters.length - 1].centroid / clusters[0].centroid : 1;
+  // ใครห่างจากค่าเฉลี่ยเกิน 1.5 SD ถือว่าผิดปกติ
+  const outliers = sd > 0 ? emps.filter((e) => Math.abs(e.salary - avg) > 1.5 * sd) : [];
+
+  const insights = [
+    { type: 'info', title: 'Monthly payroll', text: `Total ${baht(total)} for ${emps.length} employees • average ${baht(avg)} • median ${baht(median)}.` },
+    {
+      type: gap > 4 ? 'warning' : 'success',
+      title: 'Pay gap',
+      text: `Top tier earns ${gap.toFixed(1)}× the lowest tier. ${gap > 4 ? 'The gap is wide — review junior salaries.' : 'The salary structure looks balanced.'}`,
+    },
+    { type: 'info', title: 'Highest paid', text: `${top.name} (${top.position}) at ${baht(top.salary)}.` },
+  ];
+  if (outliers.length) {
+    insights.push({ type: 'warning', title: 'Salary outliers', text: `${outliers.map((o) => `${o.name} (${baht(o.salary)})`).join(', ')} differ strongly from the company average.` });
+  }
+  if (onLeave.length) {
+    const pct = Math.round((onLeave.length / emps.length) * 100);
+    insights.push({ type: pct > 30 ? 'warning' : 'info', title: 'Staff availability', text: `${onLeave.length} employee(s) on leave (${pct}%). ${pct > 30 ? 'Team capacity may be at risk.' : 'Capacity is healthy.'}` });
+  }
+  // คะแนนสุขภาพโครงสร้างเงินเดือน 0-100
+  const score = Math.max(0, Math.min(100, Math.round(100 - Math.max(0, gap - 2) * 10 - outliers.length * 8 - (onLeave.length / emps.length) * 40)));
+  res.json({ success: true, score, insights });
+}));
+
+// AI: แนะนำเงินเดือนจากตำแหน่ง (ดูคนที่ตำแหน่งคล้ายกัน)
+app.get('/api/employees/suggest-salary', requireToken, h(async (req, res) => {
+  const position = String(req.query.position || '').trim().toLowerCase();
+  if (!position) return res.status(400).json({ success: false, message: 'position is required' });
+  const [rows] = await pool.query('SELECT Warit_Position_Employ AS position, Warit_Salary_Employ AS salary FROM Warit_Employees');
+  const words = position.split(/\s+/).filter((w) => w.length > 2);
+  const scored = rows
+    .map((r) => {
+      const p = String(r.position).toLowerCase();
+      const hits = p === position ? 10 : words.filter((w) => p.includes(w)).length;
+      return { salary: Number(r.salary), hits };
+    })
+    .filter((r) => r.hits > 0);
+  if (!scored.length) return res.json({ success: true, suggested: null, basedOn: 0, message: 'No similar positions found yet' });
+  // ถ่วงน้ำหนักตามความคล้าย
+  const weight = scored.reduce((a, r) => a + r.hits, 0);
+  const suggested = Math.round(scored.reduce((a, r) => a + r.salary * r.hits, 0) / weight / 500) * 500;
+  res.json({ success: true, suggested, basedOn: scored.length, message: `Based on ${scored.length} similar position(s)` });
+}));
+
+// =======================================================
 // PHASE 1: CRUD
 // =======================================================
 app.get('/api/employees', requireToken, h(async (req, res) => {
@@ -107,25 +174,50 @@ app.get('/api/employees', requireToken, h(async (req, res) => {
   res.status(200).json(rows.map((r) => ({ ...r, salary: Number(r.salary) })));
 }));
 
-app.post('/api/employees', requireToken, h(async (req, res) => {
-  const { name, position, salary } = req.body || {};
-  const n = String(name ?? '').trim();
-  const p = String(position ?? '').trim();
+// ตรวจข้อมูลพนักงาน (ใช้ทั้งเพิ่มและแก้ไข) → คืน error message หรือ null
+function validateEmployee(body) {
+  const { name, position, salary } = body || {};
+  if (!String(name ?? '').trim() || !String(position ?? '').trim() || salary === undefined || salary === null || String(salary).trim() === '') {
+    return 'name, position and salary are required';
+  }
   const s = Number(salary);
+  if (!Number.isFinite(s) || s < 0) return 'salary must be a positive number';
+  return null;
+}
 
-  if (!n || !p || salary === undefined || salary === null || String(salary).trim() === '') {
-    return res.status(400).json({ success: false, message: 'name, position and salary are required' });
-  }
-  if (!Number.isFinite(s) || s < 0) {
-    return res.status(400).json({ success: false, message: 'salary must be a positive number' });
-  }
+const cleanImage = (img) => {
+  const v = String(img ?? '').trim();
+  return v ? v : null;
+};
+
+app.post('/api/employees', requireToken, h(async (req, res) => {
+  const error = validateEmployee(req.body);
+  if (error) return res.status(400).json({ success: false, message: error });
+  const { name, position, salary, image } = req.body;
 
   const [rs] = await pool.query(
-    "INSERT INTO Warit_Employees (Warit_Name_Employ, Warit_Position_Employ, Warit_Status_Employ, Warit_Salary_Employ) VALUES (?, ?, 'Active', ?)",
-    [n, p, s]
+    "INSERT INTO Warit_Employees (Warit_Name_Employ, Warit_Position_Employ, Warit_Status_Employ, Warit_Salary_Employ, Warit_Image_Employ) VALUES (?, ?, 'Active', ?, ?)",
+    [String(name).trim(), String(position).trim(), Number(salary), cleanImage(image)]
   );
   const [[emp]] = await pool.query(SELECT_EMP + ' WHERE Warit_ID_Employ = ?', [rs.insertId]);
   res.status(201).json({ success: true, employee: { ...emp, salary: Number(emp.salary) } });
+}));
+
+// แก้ไขข้อมูลพนักงาน (ชื่อ ตำแหน่ง เงินเดือน รูป)
+app.put('/api/employees/:id', requireToken, h(async (req, res) => {
+  const error = validateEmployee(req.body);
+  if (error) return res.status(400).json({ success: false, message: error });
+  const { name, position, salary, image } = req.body;
+
+  const [rs] = await pool.query(
+    `UPDATE Warit_Employees
+     SET Warit_Name_Employ = ?, Warit_Position_Employ = ?, Warit_Salary_Employ = ?, Warit_Image_Employ = ?
+     WHERE Warit_ID_Employ = ?`,
+    [String(name).trim(), String(position).trim(), Number(salary), cleanImage(image), req.params.id]
+  );
+  if (rs.affectedRows === 0) return res.status(404).json({ success: false, message: 'Employee not found' });
+  const [[emp]] = await pool.query(SELECT_EMP + ' WHERE Warit_ID_Employ = ?', [req.params.id]);
+  res.status(200).json({ success: true, employee: { ...emp, salary: Number(emp.salary) } });
 }));
 
 app.put('/api/employees/:id/status', requireToken, h(async (req, res) => {

@@ -15,6 +15,7 @@ export type Employee = {
   position: string;
   status: 'Active' | 'On Leave';
   salary: number;
+  image: string | null;
 };
 
 export type Cluster = { group: string; centroid: number; count: number };
@@ -55,3 +56,6 @@ export function confirm(title: string, message: string): Promise<boolean> {
 }
 
 export const baht = (n: number) => '฿' + Math.round(n).toLocaleString('en-US');
+
+// สีประจำแต่ละ Tier
+export const TIER_COLORS = ['#2E9466', '#1D6FB8', '#7A4BC2'];
