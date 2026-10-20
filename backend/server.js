@@ -40,7 +40,7 @@ const h = (fn) => (req, res) =>
 // =======================================================
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body || {};
-  if (username === 'admin' && password === 'password123') {
+  if (username === 'admin' && password === '123456') {
     return res.status(200).json({ success: true, token: 'mock-jwt-token' });
   }
   return res.status(401).json({ success: false, message: 'Invalid username or password' });
